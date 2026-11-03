@@ -5,8 +5,13 @@
 > 这是 **DSH Phone Bridge** 项目的安卓仓库。电脑端（DSH 插件）在另一个仓库：
 > **[tihuzushi/dsh-phone-bridge](https://github.com/tihuzushi/dsh-phone-bridge)** ← 先装那个，手机才有东西可连。
 
-📦 下载 APK：<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
-🎬 作者 B 站主页：<https://space.bilibili.com/157183587>
+📦 下载 APK（Releases）
+
+<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+
+🎬 作者 B 站主页
+
+<https://space.bilibili.com/157183587>
 
 ---
 
@@ -152,4 +157,8 @@ MIT，见 [LICENSE](LICENSE)。内置的 Tailscale `tsnet` 单独遵循 BSD-3-Cl
 
 ---
 
-作者 B 站：<https://space.bilibili.com/157183587>
+## 写这个的人
+
+B 站主页
+
+<https://space.bilibili.com/157183587>
