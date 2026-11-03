@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 使用问题 / Questions
+    url: https://space.bilibili.com/157183587
+    about: 装不上、连不通、不知道怎么配？先去 B 站主页看置顶视频，或者在视频评论区问。
+  - name: 🖥 电脑端插件仓库 / Plugin
+    url: https://github.com/tihuzushi/dsh-phone-bridge/issues
+    about: 如果问题明显出在电脑端的插件（设置页、桥接、配对码），请提到那个仓库。

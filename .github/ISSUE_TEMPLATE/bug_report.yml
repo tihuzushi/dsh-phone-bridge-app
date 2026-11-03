@@ -1,0 +1,99 @@
+name: 🐞 Bug 报告 / Bug report
+description: 连不上、界面错位、闪退、颜色不对……都算 bug。Anything broken — connection, layout, crash, colours.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 先看一眼
+
+        1. App 是不是最新版？连接设置 → 当前版本 → 检查更新
+        2. 电脑上的插件是不是最新版？**插件更新后必须重启 DSH**
+        3. Tailscale 两端是不是同一个账号？
+
+        下面四项版本信息请务必填全，缺了我得先问你三轮，你也等得烦。
+        Please fill in every field below — without them I have to ask three rounds of questions first.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 出了什么问题 / What happened
+      description: 一句话说清现象。比如"长按选中消息里的文字，选中区域变成一整块蓝色，字看不清"。
+      placeholder: |
+        长按选中对话里的文字后，选中区域是一整块蓝色，被选中的字看不见了。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      description: 我按这个顺序做，能不能复现？越具体越好。
+      placeholder: |
+        1. 打开 App 连上电脑
+        2. 在对话里长按一条消息
+        3. 拖动选择几个字
+        → 选中区域变纯蓝，字消失
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望的结果 / Expected
+      description: 本来应该是什么样？
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App 版本 / App version
+      description: App → 连接设置 → 当前版本
+      placeholder: 2.4.2
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: 插件版本 / Plugin version
+      description: 电脑上 DSH 设置 → DSH Phone Assistant → 版本
+      placeholder: 0.4.8
+    validations:
+      required: true
+
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH 版本 / DSH version
+      placeholder: 0.2.1-rc.5
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: 手机型号 + 安卓版本 / Phone model + Android version
+      description: 安卓系统的"深色模式"开没开也写一下，颜色问题跟这个有关。
+      placeholder: 小米 14 / Android 15 / 系统深色模式：开
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图或日志 / Screenshots or logs
+      description: 直接把截图拖进来。颜色问题请截「选中之后」的画面。
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认 / Checklist
+      options:
+        - label: 我搜过 Issues，没有重复 / I searched the existing issues
+          required: true
+        - label: 上面的版本信息是真填的，不是随便写的 / The versions above are accurate
+          required: true

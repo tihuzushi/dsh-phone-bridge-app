@@ -516,6 +516,16 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setTextZoom(100);
+        // Android's force-dark / algorithmic darkening re-colours a page it does
+        // not understand, and text selection is the first thing it breaks: the
+        // highlight gets painted with the system accent while the glyphs stay
+        // light, so a selection reads as a solid blue block. The DSH page
+        // carries its own themes, so always opt out.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            settings.setAlgorithmicDarkeningAllowed(false);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            settings.setForceDark(WebSettings.FORCE_DARK_OFF);
+        }
         settings.setUserAgentString(settings.getUserAgentString() + " HarnessPhone/1.0");
 
         CookieManager cookies = CookieManager.getInstance();

@@ -138,7 +138,7 @@ and `libs/tsnetmobile.aar` (**not in this repository** — see below).
 # 2) build (produces an unsigned APK when no signing key is present)
 $env:HP_STORE_PASS = "<your keystore password>"
 powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
-    -Version 2.4.1 -VersionCode 69 `
+    -Version 2.4.2 -VersionCode 70 `
     -KeystorePath C:\path\to\your.jks
 ```
 

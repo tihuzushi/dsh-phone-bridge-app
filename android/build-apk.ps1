@@ -1,6 +1,6 @@
 param(
-    [string]$Version = "2.4.0",
-    [int]$VersionCode = 68,
+    [string]$Version = "2.4.2",
+    [int]$VersionCode = 70,
     [string]$SdkRoot = "",
     [string]$JdkHome = "",
     [string]$StorePass = $env:HP_STORE_PASS,

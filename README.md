@@ -120,7 +120,7 @@ https://github.com/tihuzushi/dsh-phone-bridge
 # 2) 编译（没有签名密钥时产出 unsigned APK）
 $env:HP_STORE_PASS = "<你的 keystore 密码>"
 powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
-    -Version 2.4.1 -VersionCode 69 `
+    -Version 2.4.2 -VersionCode 70 `
     -KeystorePath C:\path\to\your.jks
 ```
 
