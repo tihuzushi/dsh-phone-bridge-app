@@ -1588,6 +1588,16 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String appVersion() {
+            return UpdateChecker.currentVersion(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void checkUpdate() {
+            runOnUiThread(() -> UpdateChecker.check(MainActivity.this, null));
+        }
+
+        @JavascriptInterface
         public String tsnetStatus() {
             return TsnetManager.get(MainActivity.this).cachedStatus();
         }
