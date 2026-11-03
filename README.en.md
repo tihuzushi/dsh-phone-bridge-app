@@ -2,9 +2,16 @@ English | [中文](README.md)
 
 # DSH Phone Bridge — Android client
 
-Put **DeepSeek Harness** in your pocket. A userspace Tailscale node (`tsnet`) is
-built into the app, so it **does not take over the system VPN** and you do not
-need the Tailscale app installed.
+**This is a bridge client, not a phone build of DSH.** DSH runs on your computer;
+this app puts that computer's UI on your phone.
+
+- **If the computer is off or offline, the app is useless** — it has no DSH of its
+  own, it is a remote control
+- Sessions, files, plugins and keys stay on the computer; no copy is kept here
+- **Remote connection is supported**: phone on 4G/5G, computer at home, across
+  cities and carriers — you do not need to be on the same Wi-Fi
+- A userspace Tailscale node (`tsnet`) is built in: it **does not take over the
+  system VPN**, and you do not need the Tailscale app installed
 
 > This is the Android repository of the **DSH Phone Bridge** project. The PC side
 > (the DSH plugin) lives in a different repository:
@@ -24,8 +31,9 @@ need the Tailscale app installed.
 ## Set up from zero (follow it and it works)
 
 The project has two halves: **the DSH plugin on your PC** (bridge + mobile UI)
-and **this APK on your phone**. The two sides meet over a Tailscale tailnet;
-nothing is relayed through anyone else's server.
+and **this APK on your phone**. The two sides meet over a Tailscale tailnet —
+peer-to-peer when possible, and falling back to Tailscale's encrypted relay when
+it is not. The project itself runs no server.
 
 ### Step 0: what you need
 

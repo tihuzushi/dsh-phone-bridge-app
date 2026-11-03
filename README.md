@@ -2,7 +2,12 @@
 
 # DSH Phone Bridge — Android 客户端
 
-把 **DeepSeek Harness** 装进手机的客户端。内置 `tsnet` 用户态 Tailscale 节点，**不占用系统 VPN**，也不用装 Tailscale App。
+**这是桥接客户端，不是手机版 DSH。** DSH 跑在你的电脑上，这个 App 只是把那台电脑的界面搬到手机上。
+
+- **电脑关机或断网，App 就用不了** —— 它没有自己的 DSH，只是个遥控器
+- 会话、文件、插件、密钥都在电脑上，App 里不留一份
+- **支持远程连接**：手机用 4G/5G、电脑放在家里，跨城市跨运营商都能连，不需要在同一个 WiFi
+- 内置 `tsnet` 用户态 Tailscale 节点：**不接管系统 VPN**，也不用装 Tailscale App
 
 > 这是 **DSH Phone Bridge** 项目的安卓仓库。电脑端（DSH 插件）在另一个仓库：
 > **[tihuzushi/dsh-phone-bridge](https://github.com/tihuzushi/dsh-phone-bridge)** ← 先装那个，手机才有东西可连。
@@ -19,7 +24,7 @@
 
 ## 从零开始配置（照着做完就能用）
 
-整个项目分两半：**电脑上的 DSH 插件**（桥接 + 手机版界面）和**手机上的这个 APK**。两边通过 Tailscale 的 tailnet 连起来，不经过任何中转服务器。
+整个项目分两半：**电脑上的 DSH 插件**（桥接 + 手机版界面）和**手机上的这个 APK**。两边通过 Tailscale 的 tailnet 连起来：优先点对点直连，直连打不通才走 Tailscale 的加密中继——这个项目自己没有服务器。
 
 ### 第 0 步：准备
 
