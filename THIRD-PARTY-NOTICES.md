@@ -1,20 +1,53 @@
 # Third-Party Notices / 第三方组件声明
 
+**适用于 / Applies to:** DSH Phone Bridge for Android `2.4.1` (versionCode 69) 及以后版本 / and later
+
+---
+
+## 中文
+
 本项目**自己编写的代码**（插件 `dsh-phone-bridge` 的全部源码，以及本仓库的
 Java / JavaScript / 构建脚本）以 MIT 许可证发布，见 [LICENSE](LICENSE)。
 
 本仓库**不分发**任何第三方源码。但发布在 Releases 里的 APK 内含一个由 Go
 编译出的本地库 `lib/<abi>/libgojni.so`（内置的 Tailscale 用户态节点），该库
-静态链接了下列第三方模块。它们是**二进制再分发**，各自的许可证要求保留
-版权声明和许可证全文 —— 就是本文件。
+静态链接了下列第三方模块。把 APK 发给别人属于**二进制再分发**，各自的许可证
+要求随二进制一起保留版权声明和许可证全文 —— 就是本文件。
 
-> 这份清单由 `go version -m libgojni.so` 直接读出（Go 1.27.3，
+本文件同时被打包进 APK：`assets/licenses/THIRD-PARTY-NOTICES.txt`。
+
+> 这份清单由 `go version -m libgojni.so` 直接从 APK 里的那个库读出（Go 1.27.3，
 > `tailscale.com v1.104.4`），不是手写的。插件仓库 `dsh-phone-bridge` 不包含
 > 任何第三方代码（只用 Node 内置模块），因此只有本仓库需要这份声明。
 
-## 组件清单
+## English
 
-| 模块 | 版本 | 许可证 |
+The code written for this project — all of the `dsh-phone-bridge` plugin, plus
+the Java / JavaScript / build scripts in this repository — is released under
+the MIT license; see [LICENSE](LICENSE).
+
+This repository distributes **no third-party source code**. The APK published
+in Releases, however, bundles a Go shared library `lib/<abi>/libgojni.so`
+(the embedded Tailscale userspace node). That library statically links the
+modules listed below, so handing out the APK is a **binary redistribution** of
+them. Each of those licenses requires the copyright notice and the full
+license text to be reproduced alongside the binary — this file is that
+reproduction.
+
+This file also ships inside the APK itself, as
+`assets/licenses/THIRD-PARTY-NOTICES.txt`.
+
+> The list below is read straight out of the shipped library with
+> `go version -m libgojni.so` (Go 1.27.3, `tailscale.com v1.104.4`); it is
+> generated, not hand-written. The `dsh-phone-bridge` plugin repository
+> contains no third-party code at all (Node built-ins only), which is why this
+> file lives here rather than there.
+
+---
+
+## 组件清单 / Component list
+
+| Module | Version | License |
 | --- | --- | --- |
 | `filippo.io/edwards25519` | v1.2.0 | BSD-3-Clause |
 | `github.com/creachadair/msync` | v0.10.1 | BSD-2-Clause |
@@ -46,26 +79,30 @@ Java / JavaScript / 构建脚本）以 MIT 许可证发布，见 [LICENSE](LICEN
 | `gvisor.dev/gvisor` | v0.0.0-20260915211658-a6f909f08a72 | Apache-2.0 |
 | `tailscale.com` | v1.104.4 | BSD-3-Clause |
 
-合计：Apache-2.0 × 6，BSD-2-Clause × 2，BSD-3-Clause × 16，MIT × 5。全部为宽松许可证（permissive），与 MIT 兼容，不要求公开本项目源码。
+**合计 / Total:** Apache-2.0 × 6, BSD-2-Clause × 2, BSD-3-Clause × 16, MIT × 5.
 
-## 版权声明
+全部为宽松许可证（permissive），与 MIT 兼容，**不要求公开本项目源码**。
+All are permissive and MIT-compatible; none of them require this project to
+publish its source code.
+
+## 版权声明 / Copyright notices
 
 - `filippo.io/edwards25519` — Copyright (c) 2009 The Go Authors. All rights reserved.
 - `github.com/creachadair/msync` — Copyright (C) 2022, Michael J. Fromberger
 - `github.com/fxamacker/cbor/v2` — Copyright (c) 2019-present Faye Amacker
 - `github.com/gaissmai/bart` — Copyright (c) 2026 Karl Gaissmaier
 - `github.com/go-json-experiment/json` — Copyright (c) 2020 The Go Authors. All rights reserved.
-- `github.com/golang/groupcache` — 许可证正文见下（未在 LICENSE 中单独署名）
-- `github.com/google/btree` — 许可证正文见下（未在 LICENSE 中单独署名）
+- `github.com/golang/groupcache` — 未在 LICENSE 中单独署名，正文见下 / not separately attributed; license text below
+- `github.com/google/btree` — 未在 LICENSE 中单独署名，正文见下 / not separately attributed; license text below
 - `github.com/hdevalence/ed25519consensus` — Copyright (c) 2009 The Go Authors. All rights reserved. / Copyright (c) 2020 Henry de Valence. All rights reserved.
 - `github.com/huin/goupnp` — Copyright (c) 2013, John Beisley <johnbeisleyuk@gmail.com>
 - `github.com/klauspost/compress` — Copyright (c) 2012 The Go Authors. All rights reserved. / Copyright (c) 2019 Klaus Post. All rights reserved. / Copyright 2016-2017 The New York Times Company
 - `github.com/mdlayher/socket` — Copyright (C) 2021 Matt Layher
 - `github.com/pires/go-proxyproto` — Copyright 2016 Paulo Pires
 - `github.com/tailscale/peercred` — Copyright (c) 2021, Tailscale Inc.
-- `github.com/tailscale/wireguard-go` — 许可证正文见下（未在 LICENSE 中单独署名）
+- `github.com/tailscale/wireguard-go` — 未在 LICENSE 中单独署名，正文见下 / not separately attributed; license text below
 - `github.com/x448/float16` — Copyright (c) 2019 Montgomery Edwards⁴⁴⁸ and Faye Amacker
-- `go4.org/mem` — 许可证正文见下（未在 LICENSE 中单独署名）
+- `go4.org/mem` — 未在 LICENSE 中单独署名，正文见下 / not separately attributed; license text below
 - `go4.org/netipx` — Copyright (c) 2020 The Inet.af AUTHORS. All rights reserved.
 - `golang.org/x/crypto` — Copyright 2009 The Go Authors.
 - `golang.org/x/exp` — Copyright 2009 The Go Authors.
@@ -77,8 +114,10 @@ Java / JavaScript / 构建脚本）以 MIT 许可证发布，见 [LICENSE](LICEN
 - `golang.org/x/term` — Copyright 2009 The Go Authors.
 - `golang.org/x/text` — Copyright 2009 The Go Authors.
 - `golang.org/x/time` — Copyright 2009 The Go Authors.
-- `gvisor.dev/gvisor` — 许可证正文见下（未在 LICENSE 中单独署名）
+- `gvisor.dev/gvisor` — 未在 LICENSE 中单独署名，正文见下 / not separately attributed; license text below
 - `tailscale.com` — Copyright (c) 2020 Tailscale Inc & contributors.
+
+## 许可证全文 / Full license texts
 
 ## BSD-3-Clause
 
@@ -429,9 +468,10 @@ Some files carry the "BSD" license, noted at the top of each file:
    POSSIBILITY OF SUCH DAMAGE.
 ```
 
-## Tailscale patent grant
+## Tailscale patent grant / Tailscale 专利授权
 
-`tailscale.com` 的 `PATENTS` 文件（随其 BSD-3-Clause 许可证一并分发）：
+`tailscale.com` 的 `PATENTS` 文件（随其 BSD-3-Clause 许可证一并分发）
+/ the `tailscale.com` `PATENTS` file, distributed with its BSD-3-Clause license:
 
 ```text
 Additional IP Rights Grant (Patents)
@@ -462,4 +502,4 @@ such litigation is filed.
 
 ---
 
-最后更新：2026-11-03
+最后更新 / Last updated: 2026-11-03

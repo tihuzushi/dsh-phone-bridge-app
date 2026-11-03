@@ -1,3 +1,5 @@
+[English](README.en.md) | 中文
+
 # DSH Phone Bridge — Android 客户端
 
 把 **DeepSeek Harness** 装进手机的客户端。内置 `tsnet` 用户态 Tailscale 节点，**不占用系统 VPN**，也不用装 Tailscale App。
@@ -113,7 +115,7 @@ https://github.com/tihuzushi/dsh-phone-bridge
 # 2) 编译（没有签名密钥时产出 unsigned APK）
 $env:HP_STORE_PASS = "<你的 keystore 密码>"
 powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
-    -Version 2.4.0 -VersionCode 68 `
+    -Version 2.4.1 -VersionCode 69 `
     -KeystorePath C:\path\to\your.jks
 ```
 
@@ -129,7 +131,8 @@ powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
 
 `tsnet` 属于 Tailscale Inc.，按其 BSD-3-Clause 许可证使用；本项目只调用其公开 API。
 打出来的 APK 里那个 `libgojni.so` 还静态链接了 Tailscale 自己的依赖，完整版权声明和
-许可证全文见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+许可证全文见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)，同时也会被打进 APK：
+`assets/licenses/THIRD-PARTY-NOTICES.txt`。
 
 ## 结构
 
