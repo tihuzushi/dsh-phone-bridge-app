@@ -14,17 +14,21 @@
 
 📦 下载 APK
 
-- **国内直链（推荐，快）**：<https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.2.apk>
-- GitHub Releases（原仓库，国内可能很慢）：<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+**短链（永远指向最新版）**：<https://www.hanhaichem.cn/dsh.apk>
+
+当前版本的直链（2.4.3）：<https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.3.apk>
+
+GitHub Releases（原仓库，国内可能很慢）：<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
 
 装之前校验一下，哈希对不上就别装：
 
 ```powershell
-Get-FileHash .\DSH-Phone-Bridge-2.4.2.apk -Algorithm SHA256
-# 应为 EBBA4B90148A99FB42815EDBCAD185801B0F79668A120EA5A5B184A71B21BC09
+Get-FileHash .\DSH-Phone-Bridge-2.4.3.apk -Algorithm SHA256
+# 应为 5AD53680C96E27D0D953C7628A3F336B995F30D2E592666D991970870F0ED5EA
 ```
 
-> 镜像链接带版本号，每次发版都会更新；不确定用哪个，就跟 Releases 页面上的最新版本对一下。
+> App 里「检查更新 → 直接下载」走的也是这个直连，不会跳 GitHub。
+> 短链在每次发版后自动指向新文件，不用改这里。
 
 🎬 作者 B 站主页
 
@@ -130,7 +134,7 @@ https://github.com/tihuzushi/dsh-phone-bridge
 # 2) 编译（没有签名密钥时产出 unsigned APK）
 $env:HP_STORE_PASS = "<你的 keystore 密码>"
 powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
-    -Version 2.4.2 -VersionCode 70 `
+    -Version 2.4.3 -VersionCode 71 `
     -KeystorePath C:\path\to\your.jks
 ```
 

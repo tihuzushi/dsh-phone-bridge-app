@@ -2,6 +2,8 @@ package com.harness.phone.v2;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -18,12 +20,20 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Manual update check against GitHub Releases.
+ * Manual update check against GitHub Releases, download from the China mirror.
  *
- * The APK is not downloaded inside the app: on "去下载" the release page opens in
- * the system browser, where the user can read the notes and take the asset.
+ * The version is still read from the repository, because that is the single
+ * source of truth. The APK itself is not fetched from GitHub: release pages and
+ * release assets are rate-limited from mainland China, so the download button
+ * opens the mirrored copy instead. The mirror URL is taken from the release
+ * notes (each release carries one) and falls back to a short link that always
+ * points at the newest build.
+ *
+ * Nothing is downloaded inside the app: the system browser handles the transfer.
  */
 final class UpdateChecker {
 
@@ -31,6 +41,12 @@ final class UpdateChecker {
     private static final String LATEST_URL =
             "https://api.github.com/repos/" + REPO + "/releases/latest";
     static final String RELEASES_URL = "https://github.com/" + REPO + "/releases";
+
+    /** Always serves the current build; used when a release has no mirror link. */
+    private static final String MIRROR_FALLBACK = "https://www.hanhaichem.cn/dsh.apk";
+
+    private static final Pattern APK_URL =
+            Pattern.compile("(https?://[^\\s)<>\\]\"']+\\.apk)", Pattern.CASE_INSENSITIVE);
 
     private UpdateChecker() {
     }
@@ -107,12 +123,35 @@ final class UpdateChecker {
                     Toast.makeText(activity, "已经是最新版本 " + current, Toast.LENGTH_SHORT).show();
                     return;
                 }
-                showDialog(activity, current, finalTag, finalNotes, finalPage);
+                showDialog(activity, current, finalTag, finalNotes, downloadUrlFor(finalNotes, finalPage));
             });
         }, "update-check").start();
     }
 
-    private static void showDialog(Activity activity, String current, String tag, String notes, String page) {
+    /**
+     * Prefer the mirror link the release notes carry; fall back to the short
+     * link that always points at the newest build.
+     */
+    static String downloadUrlFor(String notes, String page) {
+        String mirrored = firstMirrorUrl(notes);
+        if (mirrored != null) return mirrored;
+        if (MIRROR_FALLBACK != null && !MIRROR_FALLBACK.isEmpty()) return MIRROR_FALLBACK;
+        return page == null || page.isEmpty() ? RELEASES_URL : page;
+    }
+
+    private static String firstMirrorUrl(String notes) {
+        if (notes == null) return null;
+        Matcher matcher = APK_URL.matcher(notes);
+        String first = null;
+        while (matcher.find()) {
+            String url = matcher.group(1);
+            if (url.contains("hanhaichem.cn")) return url;
+            if (first == null) first = url;
+        }
+        return first;
+    }
+
+    private static void showDialog(Activity activity, String current, String tag, String notes, String downloadUrl) {
         StringBuilder message = new StringBuilder();
         message.append("当前版本 ").append(current).append("，最新 ").append(tag).append("\n\n");
         if (notes == null || notes.isEmpty()) {
@@ -123,16 +162,30 @@ final class UpdateChecker {
         new AlertDialog.Builder(activity)
                 .setTitle("发现新版本 " + tag)
                 .setMessage(message.toString())
+                .setNeutralButton("复制下载链接", (dialog, which) -> copy(activity, downloadUrl))
                 .setNegativeButton("稍后", null)
-                .setPositiveButton("去下载", (dialog, which) -> {
-                    try {
-                        String target = page == null || page.isEmpty() ? RELEASES_URL : page;
-                        activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(target)));
-                    } catch (Exception error) {
-                        Toast.makeText(activity, "无法打开浏览器", Toast.LENGTH_LONG).show();
-                    }
-                })
+                .setPositiveButton("直接下载", (dialog, which) -> open(activity, downloadUrl))
                 .show();
+    }
+
+    private static void open(Activity activity, String url) {
+        try {
+            activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception error) {
+            Toast.makeText(activity, "无法打开浏览器", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static void copy(Activity activity, String url) {
+        try {
+            ClipboardManager clipboard =
+                    (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard == null) return;
+            clipboard.setPrimaryClip(ClipData.newPlainText("DSH Phone Bridge", url));
+            Toast.makeText(activity, "下载链接已复制", Toast.LENGTH_SHORT).show();
+        } catch (Exception error) {
+            Toast.makeText(activity, "复制失败", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** "android-2.4.0" / "v2.4.0" / "2.4.0" -> "2.4.0". */

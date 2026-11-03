@@ -20,18 +20,21 @@ this app puts that computer's UI on your phone.
 
 📦 Download the APK
 
-- **China mirror (fast)**: <https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.2.apk>
-- GitHub Releases (canonical; often slow from mainland China): <https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+**Short link (always the newest build)**: <https://www.hanhaichem.cn/dsh.apk>
+
+Direct link for this version (2.4.3): <https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.3.apk>
+
+GitHub Releases (canonical; often slow from mainland China): <https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
 
 Verify before installing — if the hash does not match, do not install:
 
 ```powershell
-Get-FileHash .\DSH-Phone-Bridge-2.4.2.apk -Algorithm SHA256
-# expected EBBA4B90148A99FB42815EDBCAD185801B0F79668A120EA5A5B184A71B21BC09
+Get-FileHash .\DSH-Phone-Bridge-2.4.3.apk -Algorithm SHA256
+# expected 5AD53680C96E27D0D953C7628A3F336B995F30D2E592666D991970870F0ED5EA
 ```
 
-> The mirror link carries the version number and is refreshed on every release;
-> compare it with the newest tag on the Releases page if unsure.
+> The in-app "check for updates → download" button uses the same direct link, not GitHub.
+> The short link follows the newest upload, so this page needs no edit per release.
 
 🎬 Author's Bilibili page
 
@@ -149,7 +152,7 @@ and `libs/tsnetmobile.aar` (**not in this repository** — see below).
 # 2) build (produces an unsigned APK when no signing key is present)
 $env:HP_STORE_PASS = "<your keystore password>"
 powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
-    -Version 2.4.2 -VersionCode 70 `
+    -Version 2.4.3 -VersionCode 71 `
     -KeystorePath C:\path\to\your.jks
 ```
 
