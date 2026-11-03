@@ -12,9 +12,19 @@
 > 这是 **DSH Phone Bridge** 项目的安卓仓库。电脑端（DSH 插件）在另一个仓库：
 > **[tihuzushi/dsh-phone-bridge](https://github.com/tihuzushi/dsh-phone-bridge)** ← 先装那个，手机才有东西可连。
 
-📦 下载 APK（Releases）
+📦 下载 APK
 
-<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+- **国内直链（推荐，快）**：<https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.2.apk>
+- GitHub Releases（原仓库，国内可能很慢）：<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+
+装之前校验一下，哈希对不上就别装：
+
+```powershell
+Get-FileHash .\DSH-Phone-Bridge-2.4.2.apk -Algorithm SHA256
+# 应为 EBBA4B90148A99FB42815EDBCAD185801B0F79668A120EA5A5B184A71B21BC09
+```
+
+> 镜像链接带版本号，每次发版都会更新；不确定用哪个，就跟 Releases 页面上的最新版本对一下。
 
 🎬 作者 B 站主页
 

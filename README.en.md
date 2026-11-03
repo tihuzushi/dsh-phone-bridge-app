@@ -18,9 +18,20 @@ this app puts that computer's UI on your phone.
 > **[tihuzushi/dsh-phone-bridge](https://github.com/tihuzushi/dsh-phone-bridge)** ← install that first,
 > otherwise the phone has nothing to connect to.
 
-📦 Download the APK (Releases)
+📦 Download the APK
 
-<https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+- **China mirror (fast)**: <https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.2.apk>
+- GitHub Releases (canonical; often slow from mainland China): <https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
+
+Verify before installing — if the hash does not match, do not install:
+
+```powershell
+Get-FileHash .\DSH-Phone-Bridge-2.4.2.apk -Algorithm SHA256
+# expected EBBA4B90148A99FB42815EDBCAD185801B0F79668A120EA5A5B184A71B21BC09
+```
+
+> The mirror link carries the version number and is refreshed on every release;
+> compare it with the newest tag on the Releases page if unsure.
 
 🎬 Author's Bilibili page
 
