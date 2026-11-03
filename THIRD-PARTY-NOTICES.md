@@ -1,6 +1,6 @@
 # Third-Party Notices / 第三方组件声明
 
-**适用于 / Applies to:** DSH Phone Bridge for Android `2.4.4` (versionCode 72) 及以后版本 / and later
+**适用于 / Applies to:** DSH Phone Bridge for Android `2.4.5` (versionCode 73) 及以后版本 / and later
 
 ---
 

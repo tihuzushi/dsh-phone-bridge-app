@@ -407,6 +407,8 @@ h1 { margin: 0; font-size: calc(var(--offline-font-size, 15px) * 2.1); font-weig
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
+.settings-tabs { scrollbar-width: none; }
+.settings-tabs::-webkit-scrollbar { display: none; }
 .settings-tabs button {
   appearance: none;
   border: 0;
@@ -529,4 +531,202 @@ h1 { margin: 0; font-size: calc(var(--offline-font-size, 15px) * 2.1); font-weig
 }
 @media (prefers-reduced-motion: reduce) {
   .overlay, .sheet, .toast { animation: none !important; transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Settings styled after the desktop client: a row per option, the label on the
+   left, the control on the right, hairline separators in between. Only the
+   options that belong to the phone itself stay interactive.
+   --------------------------------------------------------------------------- */
+.sheet {
+  max-width: none;
+  width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  background: var(--bg);
+}
+.sheet-head {
+  padding: 14px 16px;
+  border-bottom: 0;
+}
+.sheet-head h2 { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.sheet-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  border: 1px solid var(--border-2);
+  background: var(--layer-2);
+  color: var(--text-2);
+  font-size: 22px;
+}
+.sheet-body { padding: 0 16px 32px; }
+.settings-tabs {
+  gap: 6px;
+  padding: 4px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.settings-tabs { scrollbar-width: none; }
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--text);
+}
+.settings-tabs button svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.settings-tabs button.selected { background: var(--layer-3); color: var(--text); }
+
+.dsh-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border);
+}
+.dsh-row:last-child { border-bottom: 0; }
+.dsh-row-block { flex-direction: column; align-items: stretch; gap: 12px; }
+.dsh-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dsh-label { font-size: 16px; font-weight: 500; line-height: 1.35; }
+.dsh-hint { color: var(--text-3); font-size: 12.5px; line-height: 1.5; }
+.dsh-value { color: var(--text); font-size: 15px; font-weight: 500; white-space: nowrap; }
+.dsh-value.is-locked { color: var(--text-3); font-weight: 400; }
+.dsh-tail { position: relative; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+.dsh-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--layer-3);
+  color: var(--text);
+  font-size: 15px;
+}
+.dsh-chev { color: var(--text-3); font-size: 13px; }
+.dsh-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  min-width: 128px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--layer-2);
+  box-shadow: var(--shadow);
+}
+.dsh-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+}
+.dsh-menu button.selected { background: var(--layer-3); }
+
+.dsh-segmented { display: flex; gap: 8px; }
+.dsh-segmented button {
+  flex: 1 1 0;
+  min-height: 42px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--layer-2);
+  color: var(--text);
+  font-size: 14px;
+}
+.dsh-segmented button.selected { border-color: var(--accent); color: var(--accent); background: var(--layer-2); }
+
+.dsh-stepper { display: inline-flex; align-items: center; gap: 8px; }
+.dsh-step {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  background: var(--layer-2);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1;
+}
+.dsh-step-value { min-width: 24px; text-align: center; font-size: 15px; font-weight: 500; }
+.dsh-unit { color: var(--text-3); font-size: 13px; }
+
+.dsh-btn {
+  padding: 9px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--layer-2);
+  color: var(--text);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.dsh-btn-primary {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 500;
+}
+.dsh-btn-primary:disabled { opacity: 0.45; }
+.dsh-btn-wide { width: 100%; }
+
+.dsh-section-title { font-size: 17px; font-weight: 600; margin: 4px 0 8px; }
+.dsh-sep { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+.dsh-input {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 8px;
+  padding: 11px 13px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--layer-2);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+}
+.dsh-input:focus { border-color: var(--accent); }
+.dsh-input-code { letter-spacing: 0.2em; }
+.dsh-check { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 14px; }
+.dsh-check input { width: 17px; height: 17px; accent-color: var(--accent); }
+.dsh-devices { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.dsh-devices .device { background: var(--layer-2); }
+.dsh-actions { display: flex; gap: 10px; margin-top: 14px; }
+.dsh-actions .dsh-btn { flex: 1 1 0; min-height: 44px; }
+.dsh-label-spaced { margin-top: 16px; font-size: 13px; color: var(--text-2); }
+
+/* The status card on the offline screen: the connection steps are visible
+   instead of a silent wait. */
+.offline-card { margin: 0 auto; }
+.offline-card[hidden] { display: none; }
+.offline-card-head { display: flex; align-items: center; gap: 10px; }
+.offline-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border-2);
+  border-top-color: var(--text-2);
+  animation: hp-spin 760ms linear infinite;
+}
+.offline-card.is-idle .offline-spinner { visibility: hidden; }
+.offline-actions { display: flex; gap: 8px; margin-top: 14px; }
+.offline-actions .btn { flex: 1 1 0; }
+@keyframes hp-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .offline-spinner { animation: none !important; }
 }

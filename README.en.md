@@ -22,15 +22,15 @@ this app puts that computer's UI on your phone.
 
 **Short link (always the newest build)**: <https://www.hanhaichem.cn/dsh.apk>
 
-Direct link for this version (2.4.4): <https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.4.apk>
+Direct link for this version (2.4.5): <https://www.hanhaichem.cn/wp-content/uploads/2026/11/DSH-Phone-Bridge-2.4.5.apk>
 
 GitHub Releases (canonical; often slow from mainland China): <https://github.com/tihuzushi/dsh-phone-bridge-app/releases/latest>
 
 Verify before installing — if the hash does not match, do not install:
 
 ```powershell
-Get-FileHash .\DSH-Phone-Bridge-2.4.4.apk -Algorithm SHA256
-# expected 0374293A021EDCCAF7D5C6F1507BBC9AE8CD173C458F382E992BF6EAA475E933
+Get-FileHash .\DSH-Phone-Bridge-2.4.5.apk -Algorithm SHA256
+# expected 67F2BB4CC07B09F16F451490BD69B103D8C6263F5AE10224EB78D11C5AD8C70C
 ```
 
 > The in-app "check for updates → download" button uses the same direct link, not GitHub.
@@ -152,7 +152,7 @@ and `libs/tsnetmobile.aar` (**not in this repository** — see below).
 # 2) build (produces an unsigned APK when no signing key is present)
 $env:HP_STORE_PASS = "<your keystore password>"
 powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
-    -Version 2.4.4 -VersionCode 72 `
+    -Version 2.4.5 -VersionCode 73 `
     -KeystorePath C:\path\to\your.jks
 ```
 

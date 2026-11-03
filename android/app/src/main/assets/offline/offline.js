@@ -23,8 +23,8 @@
     fontSize = Math.max(10, Math.min(28, parseInt(value, 10) || 14));
     document.documentElement.style.setProperty('--offline-font-size', fontSize + 'px');
     try { if (native.setFontSize) native.setFontSize(fontSize); } catch (_) {}
-    const input = $('offlineFontSize');
-    if (input) input.value = String(fontSize);
+    const readout = $('offlineFontSize');
+    if (readout) readout.textContent = String(fontSize);
   }
 
   const OFFLINE_EN = {
@@ -235,24 +235,35 @@
     const account = status.account || '';
     const statusText = $('statusText');
     const hint = $('statusHint');
-    if (statusText) {
-      if (shellMessage) {
-        const lines = shellMessage.split('\n').filter(Boolean);
-        statusText.textContent = lines[0] || '尚未连接';
-        if (hint) hint.textContent = lines.length > 1 ? lines.slice(1).join('\n') : '点“设置”选择电脑并输入配对码。';
-      } else if (running) {
-        statusText.textContent = 'Tailscale 已连接' + (account ? ' · ' + account : '');
-        if (hint) hint.textContent = '正在加载 HARNESS 页面…';
-      } else if (state === 'Starting') {
-        statusText.textContent = '正在恢复 Tailscale 登录…';
-        if (hint) hint.textContent = '已保存的登录信息正在恢复，请稍候。';
-      } else if (state === 'NeedsLogin' || status.authUrl) {
-        statusText.textContent = '需要登录 Tailscale';
-        if (hint) hint.textContent = '登录后会自动读取设备并连接。';
-      } else {
-        statusText.textContent = '尚未连接';
-        if (hint) hint.textContent = '配置电脑地址或登录 Tailscale 后开始。';
-      }
+    const card = $('offlineCard');
+    let title = '';
+    let detail = '';
+    let busy = false;
+    if (shellMessage) {
+      const lines = shellMessage.split('\n').filter(Boolean);
+      title = lines[0] || '';
+      detail = lines.length > 1 ? lines.slice(1).join('\n') : '';
+      busy = true;
+    } else if (running) {
+      title = (uiLanguage === 'en' ? 'Tailscale connected' : 'Tailscale 已连接') + (account ? ' · ' + account : '');
+      detail = uiLanguage === 'en' ? 'Loading the HARNESS page…' : '正在加载电脑上的 HARNESS 页面…';
+      busy = true;
+    } else if (state === 'Starting') {
+      title = uiLanguage === 'en' ? 'Restoring the Tailscale sign-in…' : '正在恢复 Tailscale 登录…';
+      detail = uiLanguage === 'en' ? 'The saved sign-in is coming back, this takes a moment.' : '已保存的登录信息正在恢复，请稍候。';
+      busy = true;
+    } else if (state === 'NeedsLogin' || status.authUrl) {
+      title = uiLanguage === 'en' ? 'Tailscale sign-in required' : '需要登录 Tailscale';
+      detail = uiLanguage === 'en' ? 'Sign in once and the phone connects by itself from then on.' : '登录一次之后，手机就能自己连上电脑。';
+    } else {
+      title = uiLanguage === 'en' ? 'Not connected yet' : '尚未连接';
+      detail = uiLanguage === 'en' ? 'Set the computer address or sign in to Tailscale to start.' : '配置电脑地址或登录 Tailscale 后开始。';
+    }
+    if (statusText) statusText.textContent = title;
+    if (hint) hint.textContent = detail;
+    if (card) {
+      card.classList.toggle('is-idle', !busy);
+      card.hidden = false;
     }
     $('tsStatus').textContent = running
       ? ((uiLanguage === 'en' ? 'Connected' : '已连接') + (account ? ' · ' + account : ''))
@@ -401,18 +412,37 @@
         window.location.reload();
       });
     });
-    const fontInput = $('offlineFontSize');
-    if (fontInput) {
-      fontInput.value = String(fontSize);
-      fontInput.addEventListener('change', () => applyOfflineFont(fontInput.value));
-      fontInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          applyOfflineFont(fontInput.value);
-          fontInput.blur();
-        }
+    const languageSelect = $('languageSelect');
+    const languageMenu = $('languageMenu');
+    const languageLabel = $('languageLabel');
+    if (languageLabel) languageLabel.textContent = uiLanguage === 'en' ? 'English' : '中文';
+    if (languageSelect && languageMenu) {
+      languageSelect.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const open = languageMenu.classList.contains('hidden');
+        languageMenu.classList.toggle('hidden', !open);
+        languageSelect.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', (event) => {
+        if (languageMenu.contains(event.target) || languageSelect.contains(event.target)) return;
+        languageMenu.classList.add('hidden');
+        languageSelect.setAttribute('aria-expanded', 'false');
       });
     }
+    const versionNode = $('appVersion');
+    if (versionNode) {
+      const version = call('appVersion');
+      versionNode.textContent = version || '—';
+    }
+    const updateButton = $('checkUpdateBtn');
+    if (updateButton) {
+      updateButton.addEventListener('click', () => {
+        call('checkUpdate');
+        toast(uiLanguage === 'en' ? 'Checking for updates…' : '正在检查更新…');
+      });
+    }
+    const fontReadout = $('offlineFontSize');
+    if (fontReadout) fontReadout.textContent = String(fontSize);
     document.querySelectorAll('[data-font-step]').forEach((button) => {
       button.addEventListener('click', () => {
         applyOfflineFont(fontSize + Number(button.getAttribute('data-font-step')));

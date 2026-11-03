@@ -93,6 +93,24 @@ public class MainActivity extends Activity {
     private static final int REQ_CONNECTION = 7002;
     private static final boolean WEBVIEW_DEBUG = false;
 
+    // Automatic connection pipeline. Every path into the app (cold start,
+    // resume, shell callback, watchdog, user tap) goes through the same
+    // single-flight state machine so the phone never starts two connections
+    // at once and never restarts a node that is already coming up.
+    private static final int CONNECT_IDLE = 0;
+    private static final int CONNECT_NODE = 1;     // bringing the embedded node up
+    private static final int CONNECT_RUNNING = 2;  // waiting for the node to be Running
+    private static final int CONNECT_PROXY = 3;    // building the local proxy
+    private static final int CONNECT_LOADING = 4;  // loading the desktop page
+    private static final int CONNECT_READY = 5;
+
+    // Poll the node state quickly at first: the node is often up in a few
+    // hundred milliseconds, and a flat 700 ms poll threw that away.
+    private static final long[] CONNECT_POLL_BACKOFF = {120, 220, 350, 550, 800, 1100};
+    private static final int CONNECT_MAX_POLLS = 60;
+    private static final int CONNECT_MAX_FAILURES = 2;
+    private static final long CONNECT_WATCHDOG_MS = 2500;
+
     private static final String KEY_TS_TARGET = "ts_target";
     private static final String KEY_TS_CODE = "ts_pair_code";
     private static final String KEY_THEME = "theme_pref";
@@ -127,16 +145,30 @@ public class MainActivity extends Activity {
     private boolean offlineShellActive = false;
     private long lastJsResponse = 0;
     private long lastAutoReconnect = 0;
-    private long lastShellAutoAttempt = 0;
-    private long shellConnectStartedAt = 0;
-    private boolean shellConnectInFlight = false;
+
+    // --- automatic connection state -----------------------------------------
+    private final Handler connectHandler = new Handler(Looper.getMainLooper());
+    private int connectStage = CONNECT_IDLE;
+    private boolean connectBusy = false;
+    private int connectPoll = 0;
+    private int connectFailures = 0;
+    private boolean connectBlocked = false;
+    private long connectStartedAt = 0;
+    private long lastConnectKick = 0;
+    private String connectTarget = "";
+    private String connectCode = "";
+    private String proxyTarget = "";
+    private String proxyUrl = "";
     private final Handler watchdogHandler = new Handler(Looper.getMainLooper());
     private final Runnable shellAutoTick = new Runnable() {
         @Override
         public void run() {
             try {
-                if (activityResumed && offlineShellActive && !pageReady && webView != null) {
-                    attemptShellAutoConnect();
+                if (activityResumed && !pageReady && webView != null
+                        && (errorView == null || errorView.getVisibility() != View.VISIBLE)) {
+                    // Watchdog only: the pipeline itself is single flight, so
+                    // this can never start a second connection.
+                    beginAutoConnect("watchdog", false);
                 }
             } finally {
                 watchdogHandler.postDelayed(this, 1000);
@@ -192,7 +224,6 @@ public class MainActivity extends Activity {
         setupView.setVisibility(View.GONE);
         errorView.setVisibility(View.GONE);
         bubble.setVisibility(View.GONE);
-        loadOfflineShell("");
 
         host = prefs.getString(KEY_HOST, "");
         port = prefs.getInt(KEY_PORT, 8765);
@@ -200,13 +231,24 @@ public class MainActivity extends Activity {
 
         String tsTarget = prefs.getString(KEY_TS_TARGET, "");
         String tsCode = prefs.getString(KEY_TS_CODE, "");
-        if (prefs.getBoolean(KEY_USE_TSNET, false) && !TextUtils.isEmpty(tsTarget) && !TextUtils.isEmpty(tsCode)) {
+        boolean useTsnet = prefs.getBoolean(KEY_USE_TSNET, false)
+                && !TextUtils.isEmpty(tsTarget) && !TextUtils.isEmpty(tsCode);
+        if (useTsnet) {
             pairingCode = tsCode;
             hostInput.setText(tsTarget);
             codeInput.setText(tsCode);
         } else if (!TextUtils.isEmpty(host) && !TextUtils.isEmpty(pairingCode)) {
             hostInput.setText(host + ":" + port);
             codeInput.setText(pairingCode);
+        }
+        boolean hasConfig = useTsnet || (!TextUtils.isEmpty(host) && !TextUtils.isEmpty(pairingCode));
+        loadOfflineShell(hasConfig ? "正在连接电脑…" : "");
+        if (hasConfig) {
+            connectBlocked = false;
+            connectFailures = 0;
+            // Do not wait for the shell to call back: every millisecond of the
+            // shell round trip is dead time the user sits through.
+            connectHandler.postDelayed(() -> beginAutoConnect("startup", false), 0);
         }
         pendingAutoConnect = false;
     }
@@ -229,30 +271,212 @@ public class MainActivity extends Activity {
     }
 
     private void attemptShellAutoConnect() {
-        if (!offlineShellActive || pageReady || webView == null) return;
+        beginAutoConnect("shell", false);
+    }
+
+    // ---------------------------------------------------------------------
+    // Automatic connection pipeline
+    //
+    // Cold start used to wait for the offline shell to call back, then tick
+    // once a second, and restart the embedded node every time a start took
+    // longer than twelve seconds. The phone therefore sat on a blank shell
+    // for seconds and could fight itself. The pipeline below is single
+    // flight, starts at once, reuses a node that is already up, and keeps a
+    // cached proxy so a reconnect does not rebuild it.
+    // ---------------------------------------------------------------------
+
+    /** Start (or restart) the automatic connection. */
+    private void beginAutoConnect(String reason, boolean force) {
+        if (webView == null) return;
+        if (pageReady && !force) return;
+        if (connectBlocked && !force) return;
         long now = System.currentTimeMillis();
+        if (!force && now - lastConnectKick < CONNECT_WATCHDOG_MS) return;
+        if (connectBusy && !force) return;
+        lastConnectKick = now;
+        connectBusy = true;
+        connectPoll = 0;
+        connectStartedAt = now;
+        connectHandler.removeCallbacksAndMessages(null);
+        if (force) {
+            // A user asked for it: give the pipeline a clean slate.
+            connectBlocked = false;
+            connectFailures = 0;
+        }
+
         String tsTarget = prefs.getString(KEY_TS_TARGET, "");
         String tsCode = prefs.getString(KEY_TS_CODE, "");
         boolean useTsnet = prefs.getBoolean(KEY_USE_TSNET, false)
                 && !TextUtils.isEmpty(tsTarget) && !TextUtils.isEmpty(tsCode);
-        boolean useDirect = !TextUtils.isEmpty(host) && !TextUtils.isEmpty(pairingCode);
-        if (!useTsnet && !useDirect) return;
-        if (shellConnectInFlight) {
-            if (now - shellConnectStartedAt < 12000) return;
-            shellConnectInFlight = false;
-        }
-        if (now - lastShellAutoAttempt < 900) return;
-        lastShellAutoAttempt = now;
-        shellConnectStartedAt = now;
-        shellConnectInFlight = true;
         if (useTsnet) {
-            // Use exactly the same entry point as the offline "保存并连接" button.
-            saveTailscaleConnection(tsTarget, tsCode);
-        } else {
-            // Use exactly the same entry point as the offline "保存并连接" button.
-            String directTarget = host;
-            if (!directTarget.contains(":") && port > 0) directTarget += ":" + port;
-            connectDirectFromShell(directTarget, pairingCode);
+            connectTarget = tsTarget;
+            connectCode = tsCode;
+            Log.d(TAG, "auto connect via tsnet: " + reason + " -> " + tsTarget);
+            startTsnetPipeline();
+            return;
+        }
+        if (!TextUtils.isEmpty(host) && !TextUtils.isEmpty(pairingCode)) {
+            connectTarget = host.contains(":") ? host : host + ":" + port;
+            connectCode = pairingCode;
+            Log.d(TAG, "auto connect direct: " + reason + " -> " + connectTarget);
+            startDirectPipeline();
+            return;
+        }
+        connectBusy = false;
+        connectStage = CONNECT_IDLE;
+        // Nothing is configured yet: leave a visible error alone, the user has
+        // to decide what to do next.
+        if (errorView == null || errorView.getVisibility() != View.VISIBLE) showSetup();
+    }
+
+    /** LAN / Tailscale-IP direct path: the page can load right away. */
+    private void startDirectPipeline() {
+        connectStage = CONNECT_LOADING;
+        setStatusInfo("正在连接电脑…");
+        updateOfflineShell("正在连接 " + connectTarget + "…");
+        preparePageLoad();
+        webView.loadUrl(buildPairUrl(connectTarget, connectCode));
+        scheduleReadyCheck(400);
+    }
+
+    /** Embedded Tailscale path: node up, then local proxy, then the page. */
+    private void startTsnetPipeline() {
+        connectStage = CONNECT_NODE;
+        setStatusInfo("正在恢复 Tailscale 登录…");
+        updateOfflineShell("正在恢复 Tailscale 登录…");
+        tsAuthOpened = false;
+        try {
+            startForegroundService(new Intent(this, TsnetService.class));
+        } catch (Exception ignored) {
+        }
+        // Ask for the state first: the node is often still alive from the
+        // foreground service, and then the slow start can be skipped.
+        TsnetManager.get(this).status((json, error) -> {
+            if (!connectBusy) return;
+            if (isTsnetRunning(json)) {
+                startProxyStage();
+                return;
+            }
+            TsnetManager.get(this).start((started, startError) -> {
+                if (!connectBusy) return;
+                if (startError != null) {
+                    failConnect("Tailscale 启动失败",
+                            startError.getMessage() == null ? "无法启动内置 Tailscale" : startError.getMessage());
+                    return;
+                }
+                pollForRunning(0);
+            });
+        });
+    }
+
+    private void pollForRunning(int index) {
+        if (!connectBusy) return;
+        connectStage = CONNECT_RUNNING;
+        TsnetManager.get(this).status((json, error) -> {
+            if (!connectBusy) return;
+            if (isTsnetRunning(json)) {
+                startProxyStage();
+                return;
+            }
+            String authUrl = tsnetAuthUrl(json);
+            if (!TextUtils.isEmpty(authUrl) && !tsAuthOpened) {
+                tsAuthOpened = true;
+                setStatusInfo("需要登录 Tailscale，正在打开登录页…");
+                updateOfflineShell("需要登录 Tailscale，正在打开登录页…");
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)));
+                } catch (Exception ignored) {
+                }
+            }
+            connectPoll++;
+            if (connectPoll >= CONNECT_MAX_POLLS) {
+                failConnect("Tailscale 连接超时", "已保留登录状态，但 Tailscale 节点暂时没有就绪。请稍后重试。");
+                return;
+            }
+            int slot = Math.min(index, CONNECT_POLL_BACKOFF.length - 1);
+            connectHandler.postDelayed(() -> pollForRunning(index + 1), CONNECT_POLL_BACKOFF[slot]);
+        });
+    }
+
+    private void startProxyStage() {
+        connectStage = CONNECT_PROXY;
+        setStatusInfo("正在建立 Tailscale 本地代理…");
+        updateOfflineShell("正在建立 Tailscale 本地代理…");
+        if (!TextUtils.isEmpty(proxyUrl) && proxyTarget.equals(connectTarget)) {
+            loadDesktopPage(proxyUrl);
+            return;
+        }
+        TsnetManager.get(this).proxyUrl(connectTarget, (url, error) -> {
+            if (!connectBusy) return;
+            if (error != null || TextUtils.isEmpty(url)) {
+                failConnect("Tailscale 代理失败", error == null ? "无法建立本地代理" : error.getMessage());
+                return;
+            }
+            proxyTarget = connectTarget;
+            proxyUrl = url;
+            loadDesktopPage(url);
+        });
+    }
+
+    private void loadDesktopPage(String base) {
+        connectStage = CONNECT_LOADING;
+        setStatusInfo("正在打开电脑页面…");
+        updateOfflineShell("正在打开电脑页面…");
+        preparePageLoad();
+        webView.loadUrl(base + "/pair?code=" + Uri.encode(connectCode) + "&hpv=2");
+        scheduleReadyCheck(400);
+    }
+
+    private void preparePageLoad() {
+        pageReady = false;
+        firstReady = true;
+        readyAttempts = 0;
+        errorView.setVisibility(View.GONE);
+        bubble.setVisibility(View.GONE);
+        webView.setVisibility(View.VISIBLE);
+    }
+
+    /** A failed step is retried a couple of times before the user sees it. */
+    private void failConnect(String title, String detail) {
+        if (connectFailures < CONNECT_MAX_FAILURES) {
+            connectFailures++;
+            long wait = 1200L * connectFailures;
+            updateOfflineShell("连接失败，正在重试（" + connectFailures + "/" + CONNECT_MAX_FAILURES + "）…");
+            connectHandler.postDelayed(() -> beginAutoConnect("retry", true), wait);
+            return;
+        }
+        connectBusy = false;
+        connectStage = CONNECT_IDLE;
+        connectFailures = 0;
+        // Stop the watchdog: retrying behind the user's back would just flash
+        // the same error over and over.
+        connectBlocked = true;
+        showError(title, detail);
+    }
+
+    private void cancelAutoConnect() {
+        connectBusy = false;
+        connectStage = CONNECT_IDLE;
+        connectPoll = 0;
+        connectFailures = 0;
+        connectHandler.removeCallbacksAndMessages(null);
+    }
+
+    private static boolean isTsnetRunning(String json) {
+        if (json == null) return false;
+        try {
+            return "Running".equals(new JSONObject(json).optString("state", ""));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static String tsnetAuthUrl(String json) {
+        if (json == null) return "";
+        try {
+            return new JSONObject(json).optString("authUrl", "");
+        } catch (Exception ignored) {
+            return "";
         }
     }
 
@@ -1069,16 +1293,10 @@ public class MainActivity extends Activity {
             return;
         }
         hideKeyboard();
-        pageReady = false;
-        firstReady = true;
-        readyAttempts = 0;
-        errorView.setVisibility(View.GONE);
-        bubble.setVisibility(View.GONE);
-        webView.setVisibility(View.VISIBLE);
         if (fromSetup) {
             loadOfflineShell("正在连接 " + host + ":" + port + "…");
         }
-        webView.loadUrl(buildPairUrl());
+        beginAutoConnect("setup", true);
     }
 
     private void startTsnetConnect(boolean fromSetup) {
@@ -1088,75 +1306,12 @@ public class MainActivity extends Activity {
             showSetup();
             return;
         }
-        pairingCode = code;
-        startForegroundService(new Intent(this, TsnetService.class));
         hideKeyboard();
-        pageReady = false;
-        firstReady = true;
-        readyAttempts = 0;
-        tsAuthOpened = false;
-        errorView.setVisibility(View.GONE);
-        bubble.setVisibility(View.GONE);
         if (fromSetup) {
             loadOfflineShell("正在恢复 Tailscale 登录…");
             setStatusInfo("正在恢复 Tailscale 登录…");
         }
-        TsnetManager.get(this).start((json, error) -> {
-            if (error != null) {
-                showError("Tailscale 启动失败", error.getMessage() == null ? "无法启动内置 Tailscale" : error.getMessage());
-                return;
-            }
-            waitForTailscale(target, code, 0);
-        });
-    }
-
-    private void waitForTailscale(String target, String code, int attempt) {
-        if (attempt > 90) {
-            setStatusInfo("");
-            connectButton.setEnabled(true);
-            connectButton.setText("连接电脑");
-            showError("Tailscale 连接超时", "已保留登录状态，但 Tailscale 节点暂时没有就绪。请稍后重试。");
-            return;
-        }
-        TsnetManager.get(this).status((json, error) -> {
-            String state = "";
-            String authUrl = "";
-            if (error == null && json != null) {
-                try {
-                    JSONObject status = new JSONObject(json);
-                    state = status.optString("state", "");
-                    authUrl = status.optString("authUrl", "");
-                } catch (Exception ignored) {
-                }
-            }
-            if ("Running".equals(state)) {
-                setStatusInfo("正在建立 Tailscale 本地代理…");
-                updateOfflineShell("正在建立 Tailscale 本地代理…");
-                TsnetManager.get(this).proxyUrl(target, (proxy, proxyError) -> {
-                    if (proxyError != null || TextUtils.isEmpty(proxy)) {
-                        showError("Tailscale 代理失败", proxyError == null ? "无法建立本地代理" : proxyError.getMessage());
-                        return;
-                    }
-                    webView.setVisibility(View.VISIBLE);
-                    webView.loadUrl(proxy + "/pair?code=" + Uri.encode(code) + "&hpv=2");
-                });
-                return;
-            }
-            if (!TextUtils.isEmpty(authUrl) && !tsAuthOpened) {
-                tsAuthOpened = true;
-                setStatusInfo("需要登录 Tailscale，正在打开登录页…");
-                updateOfflineShell("需要登录 Tailscale，正在打开登录页…");
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)));
-                } catch (Exception ignored) {
-                }
-            } else {
-                setStatusInfo("正在恢复 Tailscale 登录…");
-                updateOfflineShell("正在恢复 Tailscale 登录…");
-            }
-            getWindow().getDecorView().postDelayed(
-                    () -> waitForTailscale(target, code, attempt + 1), 700);
-        });
+        beginAutoConnect("setup", true);
     }
 
     private void openConnectionSettings() {
@@ -1231,12 +1386,37 @@ public class MainActivity extends Activity {
                 .putString(KEY_TS_CODE, cleanCode)
                 .putBoolean(KEY_USE_TSNET, true)
                 .apply();
-        startTsnetConnect(false);
+        cancelAutoConnect();
+        beginAutoConnect("manual", true);
     }
 
     private String buildPairUrl() {
         String hostPart = host.contains(":") ? "[" + host + "]" : host;
         return "http://" + hostPart + ":" + port + "/pair?code=" + Uri.encode(pairingCode) + "&hpv=2";
+    }
+
+    /** Pair URL for an explicit target, which may already carry a port. */
+    private String buildPairUrl(String target, String code) {
+        String raw = target == null ? "" : target.trim();
+        String hostPart = raw;
+        int portPart = port;
+        int colon = raw.lastIndexOf(':');
+        if (colon > 0 && colon < raw.length() - 1) {
+            String maybePort = raw.substring(colon + 1);
+            boolean numeric = maybePort.length() > 0;
+            for (int i = 0; i < maybePort.length(); i++) {
+                if (!Character.isDigit(maybePort.charAt(i))) {
+                    numeric = false;
+                    break;
+                }
+            }
+            if (numeric) {
+                hostPart = raw.substring(0, colon);
+                portPart = Integer.parseInt(maybePort);
+            }
+        }
+        String safeHost = hostPart.contains(":") ? "[" + hostPart + "]" : hostPart;
+        return "http://" + safeHost + ":" + portPart + "/pair?code=" + Uri.encode(code) + "&hpv=2";
     }
 
     private void scheduleReadyCheck(long delayMs) {
@@ -1268,8 +1448,11 @@ public class MainActivity extends Activity {
         if (pageReady) return;
         pageReady = true;
         offlineShellActive = false;
-        shellConnectStartedAt = 0;
-        shellConnectInFlight = false;
+        connectStage = CONNECT_READY;
+        connectBusy = false;
+        connectPoll = 0;
+        connectFailures = 0;
+        connectHandler.removeCallbacksAndMessages(null);
         readyAttempts = 0;
         lastJsResponse = System.currentTimeMillis();
         setConnectionLost(false);
@@ -1359,8 +1542,8 @@ public class MainActivity extends Activity {
 
     private void showError(String title, String detail) {
         pageReady = false;
-        shellConnectStartedAt = 0;
-        shellConnectInFlight = false;
+        connectBusy = false;
+        connectStage = CONNECT_IDLE;
         setSystemBars(true);
         if (bubble != null) bubble.setVisibility(View.GONE);
         StringBuilder message = new StringBuilder();
@@ -1390,9 +1573,11 @@ public class MainActivity extends Activity {
         String tsCode = prefs.getString(KEY_TS_CODE, "");
         if (prefs.getBoolean(KEY_USE_TSNET, false)
                 && !TextUtils.isEmpty(tsTarget) && !TextUtils.isEmpty(tsCode)) {
-            startTsnetConnect(false);
+            cancelAutoConnect();
+            beginAutoConnect("reconnect", true);
         } else if (!TextUtils.isEmpty(host) && !TextUtils.isEmpty(pairingCode)) {
-            startConnect(false);
+            cancelAutoConnect();
+            beginAutoConnect("reconnect", true);
         } else {
             loadOfflineShell("连接已中断，请检查电脑桥接");
         }
@@ -1698,7 +1883,8 @@ public class MainActivity extends Activity {
         pairingCode = pairCode;
         prefs.edit().putBoolean(KEY_USE_TSNET, false).apply();
         saveConfig();
-        startConnect(false);
+        cancelAutoConnect();
+        beginAutoConnect("manual", true);
     }
 
     private String sanitizeFileName(String fileName) {
