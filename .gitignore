@@ -1,0 +1,20 @@
+# build outputs
+android/build/
+android/dist/
+*.apk
+*.aab
+
+# signing material — never commit
+android/keystore/
+*.jks
+*.keystore
+
+# native binding produced by gomobile (BSD-3-Clause Tailscale binary)
+android/libs/
+
+# editor / OS
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+.DS_Store

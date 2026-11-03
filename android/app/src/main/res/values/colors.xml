@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="harness_bg">#151517</color>
+    <color name="harness_surface">#1C1C20</color>
+    <color name="harness_accent">#4D6BFE</color>
+    <color name="icon_bg">#FFFFFF</color>
+</resources>
