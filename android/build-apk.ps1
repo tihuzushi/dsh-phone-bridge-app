@@ -156,6 +156,21 @@ if (Test-Path -LiteralPath $AssetsDir) {
             [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
 }
+# BSD-3-Clause / Apache-2.0 both require the notices to travel with the binary,
+# so the repo-root notices file is packed into the APK itself as an asset.
+$NoticesSrc = Join-Path (Split-Path -Parent $Root) "THIRD-PARTY-NOTICES.md"
+if (Test-Path -LiteralPath $NoticesSrc) {
+    $entryName = "assets/licenses/THIRD-PARTY-NOTICES.txt"
+    $old = $Zip.GetEntry($entryName)
+    if ($old) { $old.Delete() }
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $Zip,
+        $NoticesSrc,
+        $entryName,
+        [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+} else {
+    Write-Warning "THIRD-PARTY-NOTICES.md not found; the APK will ship without license notices."
+}
 $Zip.Dispose()
 
 $Aligned = Join-Path $Build "aligned.apk"

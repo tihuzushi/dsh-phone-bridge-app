@@ -128,6 +128,8 @@ powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 `
 | `dist/*.apk` | 构建产物，正式包只在 Releases |
 
 `tsnet` 属于 Tailscale Inc.，按其 BSD-3-Clause 许可证使用；本项目只调用其公开 API。
+打出来的 APK 里那个 `libgojni.so` 还静态链接了 Tailscale 自己的依赖，完整版权声明和
+许可证全文见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 
 ## 结构
 
@@ -153,7 +155,15 @@ android/
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。内置的 Tailscale `tsnet` 单独遵循 BSD-3-Clause。
+**本项目自己写的代码**（Java、离线壳的 JS/CSS、构建脚本）是 MIT，见 [LICENSE](LICENSE)。
+
+**发出去的 APK 不是纯 MIT**。它内含的 `libgojni.so`（内置 Tailscale 用户态节点）静态
+链接了 29 个第三方 Go 模块：BSD-3-Clause × 16、BSD-2-Clause × 2、MIT × 5、
+Apache-2.0 × 6。它们都是宽松许可证，跟 MIT 兼容、不要求开源本项目，但要求二进制
+分发时保留版权声明和许可证全文，所以完整清单在
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+那份清单是 `go version -m libgojni.so` 直接从 APK 里的库读出来的，不是手写的。
 
 ---
 
