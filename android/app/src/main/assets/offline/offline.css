@@ -729,4 +729,13 @@ h1 { margin: 0; font-size: calc(var(--offline-font-size, 15px) * 2.1); font-weig
 @keyframes hp-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .offline-spinner { animation: none !important; }
+}.dsh-notice {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  background: var(--layer-2);
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
 }

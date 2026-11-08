@@ -1,6 +1,6 @@
 # Third-Party Notices / 第三方组件声明
 
-**适用于 / Applies to:** DSH Phone Bridge for Android `2.4.5` (versionCode 73) 及以后版本 / and later
+**适用于 / Applies to:** DSH Phone Bridge for Android `2.4.6` (versionCode 74) 及以后版本 / and later
 
 ---
 
@@ -502,4 +502,4 @@ such litigation is filed.
 
 ---
 
-最后更新 / Last updated: 2026-11-03
+最后更新 / Last updated: 2026-11-08

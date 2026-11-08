@@ -108,7 +108,12 @@ public class MainActivity extends Activity {
     // hundred milliseconds, and a flat 700 ms poll threw that away.
     private static final long[] CONNECT_POLL_BACKOFF = {120, 220, 350, 550, 800, 1100};
     private static final int CONNECT_MAX_POLLS = 60;
-    private static final int CONNECT_MAX_FAILURES = 2;
+    // A wrong configuration is not a reason to give up: the phone keeps trying
+    // in the background, so fixing the setting on either side is enough to get
+    // back online. The backoff grows but stays short.
+    private static final long CONNECT_RETRY_MIN_MS = 1500;
+    private static final long CONNECT_RETRY_MAX_MS = 8000;
+    private static final int CONNECT_PAIR_PROBE_TIMEOUT_MS = 4000;
     private static final long CONNECT_WATCHDOG_MS = 2500;
 
     private static final String KEY_TS_TARGET = "ts_target";
@@ -153,6 +158,9 @@ public class MainActivity extends Activity {
     private int connectPoll = 0;
     private int connectFailures = 0;
     private boolean connectBlocked = false;
+    private int connectRetry = 0;
+    private long retryNotBefore = 0;
+    private boolean manualConnect = false;
     private long connectStartedAt = 0;
     private long lastConnectKick = 0;
     private String connectTarget = "";
@@ -293,6 +301,9 @@ public class MainActivity extends Activity {
         long now = System.currentTimeMillis();
         if (!force && now - lastConnectKick < CONNECT_WATCHDOG_MS) return;
         if (connectBusy && !force) return;
+        // A pending retry owns the schedule; do not start an extra attempt in
+        // the middle of its backoff.
+        if (!force && now < retryNotBefore) return;
         lastConnectKick = now;
         connectBusy = true;
         connectPoll = 0;
@@ -302,7 +313,12 @@ public class MainActivity extends Activity {
             // A user asked for it: give the pipeline a clean slate.
             connectBlocked = false;
             connectFailures = 0;
+            if (!"retry".equals(reason)) {
+                connectRetry = 0;
+                retryNotBefore = 0;
+            }
         }
+        if (!"manual".equals(reason) && !"setup".equals(reason)) manualConnect = false;
 
         String tsTarget = prefs.getString(KEY_TS_TARGET, "");
         String tsCode = prefs.getString(KEY_TS_CODE, "");
@@ -329,14 +345,118 @@ public class MainActivity extends Activity {
         if (errorView == null || errorView.getVisibility() != View.VISIBLE) showSetup();
     }
 
-    /** LAN / Tailscale-IP direct path: the page can load right away. */
+    /** LAN / Tailscale-IP direct path: check the bridge before touching the UI. */
     private void startDirectPipeline() {
         connectStage = CONNECT_LOADING;
         setStatusInfo("正在连接电脑…");
         updateOfflineShell("正在连接 " + connectTarget + "…");
+        probePairing(directBaseUrl(), connectCode);
+    }
+
+    /**
+     * Ask the bridge whether the pairing code is good before the WebView is
+     * pointed at it. A wrong code used to load the bridge's error page into
+     * the WebView, which threw away whatever the user was doing in the
+     * settings and bounced the app back to the offline home screen.
+     */
+    private void probePairing(final String base, final String code) {
+        new Thread(() -> {
+            int status = 0;
+            String failure = "";
+            long retryAfterMs = 0;
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(base + "/pair?code=" + Uri.encode(code));
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(CONNECT_PAIR_PROBE_TIMEOUT_MS);
+                connection.setReadTimeout(CONNECT_PAIR_PROBE_TIMEOUT_MS);
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("User-Agent", "DSH-Phone-Bridge");
+                status = connection.getResponseCode();
+                // The bridge throttles wrong codes and says how long to wait.
+                String retryAfter = connection.getHeaderField("retry-after");
+                if (!TextUtils.isEmpty(retryAfter)) {
+                    try {
+                        retryAfterMs = Long.parseLong(retryAfter.trim()) * 1000L;
+                    } catch (Exception ignored) {
+                    }
+                }
+            } catch (Exception error) {
+                failure = error.getMessage() == null ? "" : error.getMessage();
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            final int code0 = status;
+            final String detail = failure;
+            final long throttle = retryAfterMs;
+            connectHandler.post(() -> {
+                if (!connectBusy) return;
+                if (code0 == 302 || code0 == 301 || code0 == 307 || code0 == 308) {
+                    // The code is right: now it is safe to move the WebView.
+                    connectRetry = 0;
+                    navigateToBridge(base);
+                    return;
+                }
+                if (code0 == 403) {
+                    scheduleRetry("配对码不正确，正在重试…", throttle);
+                    return;
+                }
+                if (code0 == 429) {
+                    scheduleRetry("配对请求太快，稍后自动重试…", throttle);
+                    return;
+                }
+                if (code0 > 0) {
+                    scheduleRetry("电脑返回了 " + code0 + "，正在重试…", 0);
+                    return;
+                }
+                scheduleRetry("连不上电脑，正在重试…" + (detail.isEmpty() ? "" : "（" + detail + "）"), 0);
+            });
+        }, "hp-pair-probe").start();
+    }
+
+    /** Point the WebView at the bridge. Only called once the code checked out. */
+    private void navigateToBridge(String base) {
+        connectStage = CONNECT_LOADING;
+        setStatusInfo("正在打开电脑页面…");
+        updateOfflineShell("正在打开电脑页面…");
         preparePageLoad();
-        webView.loadUrl(buildPairUrl(connectTarget, connectCode));
+        webView.loadUrl(base + "/pair?code=" + Uri.encode(connectCode) + "&hpv=2");
         scheduleReadyCheck(400);
+    }
+
+    private String directBaseUrl() {
+        String hostPart = connectTarget.contains(":") ? "[" + connectTarget + "]" : connectTarget;
+        return "http://" + hostPart + ":" + port;
+    }
+
+    /**
+     * Keep trying, but never take the screen away from the user: the current
+     * page stays exactly where it is and only the status line changes.
+     */
+    private void scheduleRetry(String message) {
+        scheduleRetry(message, 0);
+    }
+
+    private void scheduleRetry(String message, long minWaitMs) {
+        connectRetry++;
+        long wait = Math.min(CONNECT_RETRY_MIN_MS * (1L << Math.min(connectRetry - 1, 4)), CONNECT_RETRY_MAX_MS);
+        if (minWaitMs > wait) wait = Math.min(minWaitMs, CONNECT_RETRY_MAX_MS * 2L);
+        retryNotBefore = System.currentTimeMillis() + wait;
+        connectBusy = false;
+        connectStage = CONNECT_IDLE;
+        connectHandler.removeCallbacksAndMessages(null);
+        Log.w(TAG, "connect retry " + connectRetry + " in " + wait + "ms: " + message);
+        if (!isOfflineShell()) {
+            // We are sitting on some page the bridge served (its error page,
+            // say). Go back to the shell once, so the user can fix the setup.
+            loadOfflineShell(message);
+        } else {
+            // Staying on the current page is the whole point: the settings the
+            // user is editing must survive the retry.
+            updateOfflineShell(message + "（第 " + connectRetry + " 次）");
+        }
+        connectHandler.postDelayed(() -> beginAutoConnect("retry", true), wait);
     }
 
     /** Embedded Tailscale path: node up, then local proxy, then the page. */
@@ -422,9 +542,7 @@ public class MainActivity extends Activity {
         connectStage = CONNECT_LOADING;
         setStatusInfo("正在打开电脑页面…");
         updateOfflineShell("正在打开电脑页面…");
-        preparePageLoad();
-        webView.loadUrl(base + "/pair?code=" + Uri.encode(connectCode) + "&hpv=2");
-        scheduleReadyCheck(400);
+        probePairing(base, connectCode);
     }
 
     private void preparePageLoad() {
@@ -436,22 +554,15 @@ public class MainActivity extends Activity {
         webView.setVisibility(View.VISIBLE);
     }
 
-    /** A failed step is retried a couple of times before the user sees it. */
+    /**
+     * A failed step is never fatal: the phone keeps trying in the background.
+     * The screen is left alone, only the status line changes.
+     */
     private void failConnect(String title, String detail) {
-        if (connectFailures < CONNECT_MAX_FAILURES) {
-            connectFailures++;
-            long wait = 1200L * connectFailures;
-            updateOfflineShell("连接失败，正在重试（" + connectFailures + "/" + CONNECT_MAX_FAILURES + "）…");
-            connectHandler.postDelayed(() -> beginAutoConnect("retry", true), wait);
-            return;
+        if (manualConnect) {
+            Toast.makeText(this, title + (TextUtils.isEmpty(detail) ? "" : "\n" + detail), Toast.LENGTH_LONG).show();
         }
-        connectBusy = false;
-        connectStage = CONNECT_IDLE;
-        connectFailures = 0;
-        // Stop the watchdog: retrying behind the user's back would just flash
-        // the same error over and over.
-        connectBlocked = true;
-        showError(title, detail);
+        scheduleRetry(title + "，正在重试…");
     }
 
     private void cancelAutoConnect() {
@@ -808,7 +919,11 @@ public class MainActivity extends Activity {
                 if (!request.isForMainFrame()) return;
                 int code = response.getStatusCode();
                 if (code == 401 || code == 403) {
-                    showError("配对没有通过", "配对码可能已改变。请回到电脑端桥接窗口核对 6 位配对码，然后重新配对。");
+                    if (manualConnect) {
+                        showError("配对没有通过", "配对码可能已改变。请回到电脑端桥接窗口核对 6 位配对码，然后重新配对。");
+                        return;
+                    }
+                    scheduleRetry("配对没有通过，正在重试…");
                 }
             }
         });
@@ -1293,6 +1408,7 @@ public class MainActivity extends Activity {
             return;
         }
         hideKeyboard();
+        manualConnect = true;
         if (fromSetup) {
             loadOfflineShell("正在连接 " + host + ":" + port + "…");
         }
@@ -1307,6 +1423,7 @@ public class MainActivity extends Activity {
             return;
         }
         hideKeyboard();
+        manualConnect = true;
         if (fromSetup) {
             loadOfflineShell("正在恢复 Tailscale 登录…");
             setStatusInfo("正在恢复 Tailscale 登录…");
@@ -1386,6 +1503,7 @@ public class MainActivity extends Activity {
                 .putString(KEY_TS_CODE, cleanCode)
                 .putBoolean(KEY_USE_TSNET, true)
                 .apply();
+        manualConnect = true;
         cancelAutoConnect();
         beginAutoConnect("manual", true);
     }
@@ -1424,11 +1542,20 @@ public class MainActivity extends Activity {
             if (webView.getVisibility() != View.VISIBLE) return;
             if (isOfflineShell()) return;
             webView.evaluateJavascript(
-                    "(function(){try{var r=document.getElementById('root');if(!r)return 0;var t=(document.body.innerText||'').trim();return t.length}catch(e){return 0}})()",
+                    "(function(){try{var r=document.getElementById('root');var t=(document.body.innerText||'').trim();if(t.indexOf('配对码不正确')>=0||t.indexOf('配对请求太快')>=0){return 'BADCODE:'+t.length}return String(t.length)}catch(e){return '0'}})()",
                     value -> {
+                        String raw = value == null ? "0" : value.replace("\"", "");
+                        if (raw.startsWith("BADCODE:")) {
+                            // The bridge rejected the code after all: the page
+                            // it served is not the desktop client, so treat this
+                            // as a failed attempt and keep the user on the
+                            // settings instead of showing the error page.
+                            scheduleRetry("配对码不正确，正在重试…");
+                            return;
+                        }
                         int length = 0;
                         try {
-                            length = Integer.parseInt(value.replace("\"", ""));
+                            length = Integer.parseInt(raw);
                         } catch (Exception ignored) {
                         }
                         if (length > 20) {
@@ -1448,6 +1575,7 @@ public class MainActivity extends Activity {
         if (pageReady) return;
         pageReady = true;
         offlineShellActive = false;
+        manualConnect = false;
         connectStage = CONNECT_READY;
         connectBusy = false;
         connectPoll = 0;
@@ -1537,7 +1665,12 @@ public class MainActivity extends Activity {
                 detail = "无法打开电脑上的 HARNESS。请确认桥接窗口运行中，且手机与电脑在同一局域网。\n\n" + description;
                 break;
         }
-        showError("无法连接 HARNESS", detail);
+        if (manualConnect) {
+            showError("无法连接 HARNESS", detail);
+            return;
+        }
+        // A background attempt: say it in the status line and keep going.
+        scheduleRetry("无法连接 HARNESS，正在重试…");
     }
 
     private void showError(String title, String detail) {
@@ -1551,6 +1684,12 @@ public class MainActivity extends Activity {
         if (!TextUtils.isEmpty(detail)) {
             if (message.length() > 0) message.append("\n");
             message.append(detail);
+        }
+        if (isOfflineShell()) {
+            // The shell is on screen already: say it there instead of reloading
+            // the page, which would throw away the settings being edited.
+            updateOfflineShell(message.toString());
+            return;
         }
         loadOfflineShell(message.toString());
     }
@@ -1883,6 +2022,7 @@ public class MainActivity extends Activity {
         pairingCode = pairCode;
         prefs.edit().putBoolean(KEY_USE_TSNET, false).apply();
         saveConfig();
+        manualConnect = true;
         cancelAutoConnect();
         beginAutoConnect("manual", true);
     }

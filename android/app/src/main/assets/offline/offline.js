@@ -227,6 +227,13 @@
   function setMessage(message) {
     shellMessage = message || '';
     renderStatus();
+    // The status card sits behind the settings sheet, so mirror the message
+    // into the panel: the user may well be editing the settings right now.
+    const notice = $('connNotice');
+    if (notice) {
+      notice.textContent = shellMessage;
+      notice.classList.toggle('hidden', !shellMessage);
+    }
   }
 
   function renderStatus() {
